@@ -1,5 +1,7 @@
 # ############################### Libraries ######################################
+# import atexit
 import os
+# import config
 
 # получаем путь до папки с файлами
 currentDir = os.path.dirname(os.path.abspath(__file__))

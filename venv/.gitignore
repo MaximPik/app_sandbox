@@ -1,0 +1,6 @@
+# Default ignored files
+/Lib/
+/Scripts/
+/share/
+/pyvenv.cfg
+/Include/config.cfg
