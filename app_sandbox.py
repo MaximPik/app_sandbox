@@ -1,14 +1,17 @@
 # ############################### Libraries ######################################
-# import atexit
+
 import os
-# import config
+import sys
+import gui_sandbox
 
 # получаем путь до папки с файлами
 currentDir = os.path.dirname(os.path.abspath(__file__))
 includePath = os.path.join(currentDir, 'venv', 'include')
 
-import sys
-
 sys.path.append(includePath)
 
-import gui_sandbox
+def main():
+    app = gui_sandbox.Application()
+    app.mainloop()
+
+main()

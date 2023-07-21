@@ -73,24 +73,44 @@ def points_arr_creating(dataArr, columnX, columnY, arrZ):
 
 
 # группируем точки по €чейкам
-def points_sort(axisX, axisY, pointsArr):
+def points_sort(axisXVector, axisYVector, pointsArr):
+    # # создаЄм пустой трЄхмерный массив
+    # sortedPointsArr = [[[0 for kter in range(1)] for jter in range(axisX.numCells)] for iter in range(axisY.numCells)]
+    # cellsWidth = (axisX.maxValue - axisX.minValue) / axisX.numCells  # ширина €чейки
+    # cellsHeight = (axisY.maxValue - axisY.minValue) / axisY.numCells  # высота €чейки
+    # for point in pointsArr:
+    #     cellIndexX = int((float(point.X) - axisX.minValue) / cellsWidth) + 1  # строка €чейки
+    #     cellIndexY = int((float(point.Y) - axisY.minValue) / cellsHeight) + 1  # столбец €чейки
+    #     if 0 <= cellIndexX <= axisX.numCells and 0 <= cellIndexY <= axisY.numCells:  # проверка выход за диапазон
+    #         sortedPointsArr[cellIndexX - 1][cellIndexY - 1].append(point)
+    # return sortedPointsArr
+
+    #ѕреобразуем массив строк в числовой
+    axisXVector = [float(num) for num in axisXVector]
+    axisYVector = [float(num) for num in axisYVector]
     # создаЄм пустой трЄхмерный массив
-    sortedPointsArr = [[[0 for kter in range(1)] for jter in range(axisX.numCells)] for iter in range(axisY.numCells)]
-    cellsWidth = (axisX.maxValue - axisX.minValue) / axisX.numCells  # ширина €чейки
-    cellsHeight = (axisY.maxValue - axisY.minValue) / axisY.numCells  # высота €чейки
+    sortedPointsArr = [[[0 for kter in range(1)] for jter in range(len(axisYVector)-1)] for iter in range(len(axisXVector)-1)]
     for point in pointsArr:
-        cellIndexX = int((float(point.X) - axisX.minValue) / cellsWidth) + 1  # строка €чейки
-        cellIndexY = int((float(point.Y) - axisY.minValue) / cellsHeight) + 1  # столбец €чейки
-        if 0 <= cellIndexX <= axisX.numCells and 0 <= cellIndexY <= axisY.numCells:  # проверка выход за диапазон
-            sortedPointsArr[cellIndexX - 1][cellIndexY - 1].append(point)
+        cellIndexX = None
+        cellIndexY = None
+        for cell in range(0, len(axisXVector) - 1):
+            if cellIndexX == None:
+                if float(point.X) >= axisXVector[cell] and float(point.X) < axisXVector[cell+1]:
+                    cellIndexX = cell
+        for cell in range(0, len(axisYVector) - 1):
+            if cellIndexY == None:
+                if float(point.Y) >= axisYVector[cell] and float(point.Y) < axisYVector[cell + 1]:
+                    cellIndexY = cell
+
+        if cellIndexX != None and cellIndexY != None:  # проверка выход за диапазон
+            sortedPointsArr[cellIndexX][cellIndexY].append(point)
+
     return sortedPointsArr
 
 
 # поиск среднего значение группированных точек каждой €чейки
-def avg_sorted_points(axisX, axisY, sortedPointsArr):
-    cellsWidth = (axisX.maxValue - axisX.minValue) / axisX.numCells  # ширина €чейки
-    cellsHeight = (axisY.maxValue - axisY.minValue) / axisY.numCells  # высота €чейки
-    avgPointsArr = [[0 for jter in range(len(sortedPointsArr[1]))] for iter in range(len(sortedPointsArr))]
+def avg_sorted_points(axisXVector, axisYVector, sortedPointsArr):
+    avgPointsArr = [[0 for jter in range(len(sortedPointsArr[0]))] for iter in range(len(sortedPointsArr))]
     for row in range(0, len(sortedPointsArr)):
         for col in range(0, len(sortedPointsArr[row])):
             summX = 0
@@ -107,18 +127,18 @@ def avg_sorted_points(axisX, axisY, sortedPointsArr):
                 avgZ = summZ / (len(sortedPointsArr[row][col]) - 1)
                 avgPointsArr[row][col] = Point(avgX, avgY, avgZ)
 
-    avgPointsArr = interpolate(avgPointsArr, axisX, axisY)
+    avgPointsArr = interpolate(avgPointsArr, axisXVector, axisYVector)
     return avgPointsArr
 
 
 # ѕолиномиальна€ интерпол€ци€/экстрапол€ци€ функции двух переменных
-def interpolate(avgPointsArr, axisX, axisY):
+def interpolate(avgPointsArr, axisXVector, axisYVector):
+    axisXVector = [float(num) for num in axisXVector]
+    axisYVector = [float(num) for num in axisYVector]
     copyArr = np.array(avgPointsArr)  # ¬спомогательный
-    cellsWidth = (axisX.maxValue - axisX.minValue) / axisX.numCells  # ширина €чейки
-    cellsHeight = (axisY.maxValue - axisY.minValue) / axisY.numCells  # высота €чейки
     arrX, arrY, arrZ = [], [], []
     for row in range(0, len(copyArr)):
-        for col in range(0, len(copyArr)):
+        for col in range(0, len(copyArr[row])):
             if copyArr[row][col] != 0:
                 arrX.append(copyArr[row][col].X)
                 arrY.append(copyArr[row][col].Y)
@@ -128,6 +148,7 @@ def interpolate(avgPointsArr, axisX, axisY):
     arrZ = np.array(arrZ)
 
     # ѕостроение матрицы системы уравнений
+    #A = np.column_stack([np.ones_like(arrX), arrX, arrY, arrX ** 2, arrY ** 2, arrX * arrY, arrX**3, arrY*3, (arrX**2)*arrY, arrX*(arrY**2)])
     A = np.column_stack([np.ones_like(arrX), arrX, arrY, arrX ** 2, arrY ** 2, arrX * arrY])
 
     # –ешение системы уравнений
@@ -135,13 +156,16 @@ def interpolate(avgPointsArr, axisX, axisY):
 
     #  оэффициенты полинома
     a, b, c, d, e, f = coefficients
+    #a, b, c, d, e, f, g, h, i, j = coefficients
 
     # Ёкстрапол€ци€/интерпол€ци€
     for row in range(0, len(copyArr)):
-        for col in range(0, len(copyArr)):
+        for col in range(0, len(copyArr[row])):
             if copyArr[row][col] == 0:
-                avgX = ((row + 1) * cellsWidth - cellsWidth / 2 + axisX.minValue)
-                avgY = ((col + 1) * cellsHeight - cellsHeight / 2 + axisY.minValue)
+                # avgX = ((row + 1) * cellsWidth - cellsWidth / 2 + axisX.minValue)
+                # avgY = ((col + 1) * cellsHeight - cellsHeight / 2 + axisY.minValue)
+                avgX = (axisXVector[row] + axisXVector[row + 1]) / 2
+                avgY = (axisYVector[col] + axisYVector[col + 1]) / 2
                 avgZ = a + b * avgX + c * avgY + d * avgX ** 2 + e * avgY ** 2 + f * avgX * avgY
                 copyArr[row][col] = Point(avgX, avgY, avgZ)
     copyArr = copyArr.tolist()
@@ -210,11 +234,11 @@ def replace_symbols_surface(dataArr, s_1, s_2):
 
 
 # построение 3д поверхности
-def surface(avgPointsTab, pointsArr):
+def surface(avgPointsTab, pointsArr, axisXVector, axisYVector):
     # преобразуем двумерный массив средних точек в 2 одномерных массива координат ’ и Y
-    arrX = [[0 for jter in range(len(avgPointsTab[1]))] for iter in range(len(avgPointsTab))]
-    arrY = [[0 for jter in range(len(avgPointsTab[1]))] for iter in range(len(avgPointsTab))]
-    arrZ = [[0 for jter in range(len(avgPointsTab[1]))] for iter in range(len(avgPointsTab))]
+    arrX = [[0 for jter in range(len(avgPointsTab[0]))] for iter in range(len(avgPointsTab))]
+    arrY = [[0 for jter in range(len(avgPointsTab[0]))] for iter in range(len(avgPointsTab))]
+    arrZ = [[0 for jter in range(len(avgPointsTab[0]))] for iter in range(len(avgPointsTab))]
     pointsX = []
     pointsY = []
     pointsZ = []
@@ -240,15 +264,28 @@ def surface(avgPointsTab, pointsArr):
     ax.scatter(pointsX, pointsY, pointsZ, s=0.5, color='red')
 
     # –азмерность осей
-    maxValX = max(pointsArr, key=lambda point: float(point.X)).X  # максимальное ’ из массива точек
-    maxValY = max(pointsArr, key=lambda point: float(point.Y)).Y  # максимальное Y из массива точек
-    minValX = min(pointsArr, key=lambda point: float(point.X)).X  # минимальное ’ из массива точек
-    minValY = min(pointsArr, key=lambda point: float(point.Y)).Y  # минимальное Y из массива точек
-    maxValZ = max(pointsArr, key=lambda point: float(point.Z)).Z  # максимальное Z из массива точек
-    minValZ = min(pointsArr, key=lambda point: float(point.Z)).Z  # минимальное Z из массива точек
+    # maxValX = max(pointsArr, key=lambda point: float(point.X)).X  # максимальное ’ из массива точек
+    # maxValY = max(pointsArr, key=lambda point: float(point.Y)).Y  # максимальное Y из массива точек
+    # minValX = min(pointsArr, key=lambda point: float(point.X)).X  # минимальное ’ из массива точек
+    # minValY = min(pointsArr, key=lambda point: float(point.Y)).Y  # минимальное Y из массива точек
+    # maxValZ = max(pointsArr, key=lambda point: float(point.Z)).Z  # максимальное Z из массива точек
+    # minValZ = min(pointsArr, key=lambda point: float(point.Z)).Z  # минимальное Z из массива точек
+
+    # ѕреобразуем массив строк в числовой
+    axisXVector = [float(num) for num in axisXVector]
+    axisYVector = [float(num) for num in axisYVector]
+    maxValX = max(axisXVector)  # максимальное ’ из массива точек
+    maxValY = max(axisYVector)  # максимальное Y из массива точек
+    minValX = min(axisXVector)  # минимальное ’ из массива точек
+    minValY = min(axisYVector)  # минимальное Y из массива точек
+    # maxValZ = max(arrZ)  # максимальное Z из массива точек
+    # minValZ = min(arrZ)  # минимальное Z из массива точек
+    # maxValZ = max(pointsArr, key=lambda point: float(point.Z)).Z  # максимальное Z из массива точек
+    # minValZ = min(pointsArr, key=lambda point: float(point.Z)).Z  # минимальное Z из массива точек
+
     ax.set_xlim(float(minValX), float(maxValX))
     ax.set_ylim(float(minValY), float(maxValY))
-    ax.set_zlim(float(minValZ), float(maxValZ))
+    # ax.set_zlim(float(minValZ), float(maxValZ))
     # Ќазвание осей
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
