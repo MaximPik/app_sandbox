@@ -890,6 +890,9 @@
   ('lib_common',
    'D:\\Practice\\pythonProject\\venv\\Include\\lib_common.py',
    'PYMODULE'),
+  ('lib_data_csv',
+   'D:\\Practice\\pythonProject\\venv\\Include\\lib_data_csv.py',
+   'PYMODULE'),
   ('logging',
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.11_3.11.1264.0_x64__qbz5n2kfra8p0\\Lib\\logging\\__init__.py',

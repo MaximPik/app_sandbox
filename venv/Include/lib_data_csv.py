@@ -12,13 +12,12 @@ def file_read_lines(filePath):
     strBuf = ""
     if(os.path.exists(filePath) == True): #существует ли файл по этому пути
         strArr = []
-        # try:
-        #     fo = open(filePath, "r+", encoding=encodingFile)
-        #     fo.read()
-        # except IOError:
-        #     gui_sandbox.messagebox.showerror('Ошибка', f'Открыт файл {filePath}')
-        #     return
-        fo = open(filePath, "r+", encoding=encodingFile)
+        try:
+            fo = open(filePath, "r+", encoding=encodingFile)
+        except IOError:
+            gui_sandbox.messagebox.showerror('Ошибка', f'Открыт файл {filePath}')
+            return 0
+        #fo = open(filePath, "r+", encoding=encodingFile)
 
         lineStr = " "
         strArr.append(lineStr)

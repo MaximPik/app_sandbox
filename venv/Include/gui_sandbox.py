@@ -92,6 +92,8 @@ class CustomConfig:
                 item.set(config[f'{className.tabTitle}'].get(f'Combobox {counter}'))
                 if className.path != '':
                     strArr = lib_data_csv.file_read_lines(className.path)
+                    if strArr == 0:
+                        return
                     dataArr = strArr[0].split(";")  # Добавили только заголовки
                     className.update_axis_combobox(dataArr, item)
             counter = 0
@@ -135,6 +137,10 @@ class CommonFunc:
         selectedVar = listObj.get(listObj.curselection())
         #Считываем позицию курсора
         position = entryObj.index(tk.INSERT)
+        textBeforeCursor = entryObj.get()[:position] # Получаем текст до индекса курсора
+        parts = re.split(r'[-+*/(]', textBeforeCursor) # Разделяем текст на части по знакам "+", "-", "*", "/"
+        lastPart = parts[-1] # Получаем последнюю часть (то, что находится левее курсора)
+        entryObj.delete(position - len(lastPart), position) # Удаляем найденную часть из поля ввода
         entryObj.insert(position, selectedVar)  # добавляет текст из variable на место курсора
         listObj.pack_forget()  # Скрывает List с экрана
         entryObj.focus_set()  # устанавливает фокус на Entry, чтобы после выбора из списка не нужно было снова тыкать на Entry
@@ -159,14 +165,15 @@ class CommonFunc:
         else:
             resultArr = []
         matchingVars = [var for var in resultArr if var.startswith(currentPart)]
-        if len(matchingVars) != 1:
-            for var in matchingVars:
-                listObj.insert(tk.END, var)
-            if matchingVars:
-                #listObj.place(relx=0.5, y=305, anchor="n")
-                pass
-            else:
-                listObj.pack_forget()
+        if len(matchingVars) > 0:
+            if matchingVars[0] != '':
+                for var in matchingVars:
+                    listObj.insert(tk.END, var)
+                if matchingVars:
+                    #listObj.place(relx=0.5, y=305, anchor="n")
+                    pass
+                else:
+                    listObj.pack_forget()
 
     def copy_to_clipboard(self, copyObj):
         if isinstance(copyObj, str):
@@ -291,7 +298,6 @@ class Surface(ttk.Frame, CommonFunc):
         # testButton.place(relx=0.5, y=780, anchor="n")
         # testButton.config(width=25)
 
-
     def reset_data_file(self):
         self._allDataFromFile = []
         self.selectedFileLabel.config(text='Последний выбранный файл: ')
@@ -341,6 +347,8 @@ class Surface(ttk.Frame, CommonFunc):
         # ПРОГРАММА
         if self.var.get() == 1:
             dataFromFile = lib_data_csv.file_read_lines(self.path)
+            if dataFromFile == 0:
+                return 0
             strArr = dataFromFile
             strArr = strArr[0].split(";")  # Добавили только заголовки
             for iter in range(0, len(strArr)):
@@ -349,8 +357,9 @@ class Surface(ttk.Frame, CommonFunc):
                 if yAxis == strArr[iter]:
                     columnY = iter
             tempArr = strArr  # Добавили только заголовки
-            for iter in range(len(strArr)):
-                tempArr[iter] = strArr[iter].split(",")[0]
+            for iter in range(1, len(strArr)):
+                tempArr[iter] = strArr[iter].split(",")[0] #Разделяем заголовок по "," и присваиваем часть до ","
+                tempArr[iter] = strArr[iter].split(" ")[0] #Разделяем заголовок по " " и присваиваем часть до " "
             dataArr = lib_common.data_arr_creating(dataFromFile)
             self._allDataFromFile = self._allDataFromFile + dataArr
             arrZ = app_vector.columnZ_creating(self._allDataFromFile, formula, tempArr)
@@ -517,7 +526,7 @@ class Approximation(ttk.Frame, CommonFunc):
         self.csvRecordList = csvRecord
         resultArr = lib_common.replace_symbols(resultArr, ',', '.')
         # аппроксимация и построение графика; 3 - степень аппроксимации
-        self.formula = app_approximation.approx_func(resultArr, 3, referenceCol_1, referenceCol_2, strArr[referenceCol_1], strArr[referenceCol_2])
+        self.formula = app_approximation.approx_func(resultArr, 2, referenceCol_1, referenceCol_2, strArr[referenceCol_1], strArr[referenceCol_2])
         self.update_entry(self.formulaEntry, self.formula)
 
     def is_float(self, str):
@@ -643,6 +652,7 @@ class Vector(ttk.Frame, CommonFunc):
         tempArr = strArr  # Добавили только заголовки
         for iter in range(0, len(strArr)):
             tempArr[iter] = tempArr[iter].split(",")[0]
+            tempArr[iter] = tempArr[iter].split(" ")[0]  # Разделяем заголовок по " " и присваиваем часть до " "
         dataArr = lib_common.data_arr_creating(dataFromFile)
         arrZ = app_vector.columnZ_creating(dataArr, formula, tempArr)
         pointsArr = app_vector.points_arr_creating(dataArr, columnX, columnY, arrZ)
