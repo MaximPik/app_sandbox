@@ -41,6 +41,7 @@ class CustomConfig:
             self.entries = []
             self.statusCheckBox = None
             self.filePath = None
+            self.historyPath = []
             # Закрытие окна
         root.destroy()
 
@@ -50,6 +51,11 @@ class CustomConfig:
         #if className.path != None:
             self.filePath = className.path
         else: self.filePath = ''
+        # История путей до файла
+        if hasattr(className, "oldPath"):
+            self.historyPath = className.oldPath
+        else:
+            self.historyPath = []
         # Статус checkBox
         if hasattr(className, "checkButton"):
             self.statusCheckBox = str(className.var.get())
@@ -64,6 +70,15 @@ class CustomConfig:
         counter = 0
         if self.filePath != None:
             config[f'{className.tabTitle}']['File Path'] = self.filePath
+
+        if (self.historyPath == None):
+            config[f'{className.tabTitle}']['History Path'] = ''
+        else:
+            for item in range(0, len(self.historyPath)):
+                counter+=1
+                config[f'{className.tabTitle}'][f'History Path {counter}'] = self.historyPath[item]
+            counter = 0
+
         if self.statusCheckBox!= None:
             config[f'{className.tabTitle}']['Status checkbox'] = self.statusCheckBox
         for item in range(0, len(self.comboboxes)):
@@ -83,6 +98,15 @@ class CustomConfig:
         counter = 0
         if f'{className.tabTitle}' in config:
             className.path = config[f'{className.tabTitle}'].get('File Path')
+
+            if hasattr(className, "History Path"):
+                for item in className.oldPath:
+                    counter+=1
+                    item.set(config[f'{className.tabTitle}'].get(f'History Path {counter}'))
+                counter = 0
+            else:
+                className.oldPath = []
+
             if hasattr(className, "selectedFileLabel"):
                 className.selectedFileLabel.config(text='Последний выбранный файл: ' + className.path)
             if hasattr(className, "checkButton"):
@@ -103,7 +127,8 @@ class CustomConfig:
 
 class CommonFunc:
     def __init__(self):
-        self.path = ''
+        self.path = '' #Текущий путь до файла
+        self.oldPath = [] #Прошлые пути до файла
 
     def select_input_file(self, labelObj, className):
         filePath = filedialog.askopenfilename(filetypes=(("CSV files", "*.csv"), ("All files", "*.*")))
@@ -113,7 +138,7 @@ class CommonFunc:
             dataArr = strArr[0].split(";") #Добавили только заголовки
             for item in className.comboboxes:
                 self.update_axis_combobox(dataArr, item)
-            self.path = filePath  # сохраняем содержимое файла в глобальной переменной
+            self.path = filePath  # сохраняем путь до файла в глобальной переменной
 
     def update_axis_combobox(self, values, obj = None):
         if obj != None:
@@ -250,8 +275,8 @@ class Surface(ttk.Frame, CommonFunc):
         formulaLabel = ttk.Label(self, text="Введите формулу.")
         formulaLabel.place(relx=0.5, y=390, anchor="n")
 
-        zLabel = ttk.Label(self, text="Z =")
-        zLabel.place(relx=0.1, y=420)
+        zLabel = ttk.Label(self, text="Z=")
+        zLabel.place(relx=0.08, y=420)
 
         self.formulaEntry = app_vector.Entry(self)
         self.formulaEntry.place(relx=0.5, y=420, anchor="n")
@@ -265,6 +290,22 @@ class Surface(ttk.Frame, CommonFunc):
         #"<FocusIn>" - фокус на виджете
         self.formulaEntry.bind("<FocusIn>", lambda _: self.show_variable_list(path=self.path, entryObj=self.formulaEntry, listObj=variableList))
         Surface.entries.append(self.formulaEntry)
+
+        zMinLabel = ttk.Label(self, text="Z_min=")
+        zMinLabel.place(relx=0.08, y=450)
+
+        self.zMinEntry = app_vector.Entry(self)
+        self.zMinEntry.place(relx=0.25, y=450, anchor="n")
+        self.zMinEntry.config(width=5)
+        Surface.entries.append(self.zMinEntry)
+
+        zMaxLabel = ttk.Label(self, text="Z_max=")
+        zMaxLabel.place(relx=0.08, y=480)
+
+        self.zMaxEntry = app_vector.Entry(self)
+        self.zMaxEntry.place(relx=0.25, y=480, anchor="n")
+        self.zMaxEntry.config(width=5)
+        Surface.entries.append(self.zMaxEntry)
 
         runButton = ttk.Button(self, text="Запустить программу", command=self.run)
         runButton.place(relx=0.5, y=630, anchor="n")
@@ -330,6 +371,28 @@ class Surface(ttk.Frame, CommonFunc):
             messagebox.showerror('Ошибка', 'Формула не корректна.')
             return
 
+        zMin = self.zMinEntry.get()
+        if zMin:
+            try:
+                # Проверяем, что введенное значение может быть преобразовано в число
+                zMin = float(zMin)
+            except ValueError:
+                messagebox.showerror('Ошибка', 'Ввод некорректен (z_min). Введите число.')
+                return
+
+        zMax = self.zMaxEntry.get()
+        if zMax:
+            try:
+                # Проверяем, что введенное значение может быть преобразовано в число
+                zMax = float(zMax)
+            except ValueError:
+                messagebox.showerror('Ошибка', 'Ввод некорректен (z_max). Введите число.')
+                return
+        if zMax and zMin:
+            if zMax <= zMin:
+                messagebox.showerror('Ошибка', 'z_max не может быть меньше z_min.')
+                return
+
         xAxisVector = self.xAxisVector.get()
         xAxisVector = re.findall(r'-?\b\d+(?:\.\d+)?\b', xAxisVector)
         #xAxisVector = re.findall(r'\b\d+\b', xAxisVector)
@@ -374,14 +437,13 @@ class Surface(ttk.Frame, CommonFunc):
             if counter == 0:
                 messagebox.showerror('Ошибка', 'Хотя бы одна точка должна входит в заданный вектор.')
                 return
-            avgPointsArr = app_vector.avg_sorted_points(xAxisVector, yAxisVector, sortedPoints)
-
-            csvRecord = app_vector.replace_symbols_surface(avgPointsArr, '.', ',')
+            nodePoints = app_surface_gen.node_points(xAxisVector, yAxisVector, sortedPoints)
+            csvRecord = app_vector.replace_symbols_surface(nodePoints, '.', ',')
             self.csvRecordList = app_vector.process_list_to_csvFormat_surface(csvRecord)
-            csvRecord = app_vector.replace_symbols_surface(avgPointsArr, ',', '.')
-            app_vector.surface(avgPointsArr, pointsArr, xAxisVector, yAxisVector)
-
+            csvRecord = app_vector.replace_symbols_surface(nodePoints, ',', '.')
+            app_vector.surface(nodePoints, pointsArr, xAxisVector, yAxisVector, zMin, zMax)
             self._allDataFromFile = []
+
         else:
             dataFromFile = lib_data_csv.file_read_lines(self.path)
             strArr = dataFromFile
@@ -392,10 +454,18 @@ class Surface(ttk.Frame, CommonFunc):
                 if yAxis == strArr[iter]:
                     columnY = iter
             tempArr = strArr  # Добавили только заголовки
-            for iter in range(len(strArr)):
-                tempArr[iter] = strArr[iter].split(",")[0]
+            for iter in range(1, len(strArr)):
+                tempArr[iter] = strArr[iter].split(",")[0]  # Разделяем заголовок по "," и присваиваем часть до ","
+                tempArr[iter] = strArr[iter].split(" ")[0]  # Разделяем заголовок по " " и присваиваем часть до " "
             dataArr = lib_common.data_arr_creating(dataFromFile)
-            self._allDataFromFile = self._allDataFromFile + dataArr
+
+            check = False
+            for path in self.oldPath:
+                if self.path == path:
+                    check = True
+            if check==False:
+                self._allDataFromFile = self._allDataFromFile + dataArr
+
             arrZ = app_vector.columnZ_creating(self._allDataFromFile, formula, tempArr)
             pointsArr = app_vector.points_arr_creating(self._allDataFromFile, columnX, columnY, arrZ)
             sortedPoints = app_vector.points_sort(xAxisVector, yAxisVector, pointsArr)
@@ -406,14 +476,19 @@ class Surface(ttk.Frame, CommonFunc):
                     if len(sortedPoints[iter][jter]) != 0:
                         counter = 1
             if counter == 0:
-                messagebox.showerror('Ошибка', 'Хотя бы одна точка должна входит в заданный вектор.')
+                messagebox.showerror('Ошибка', 'Хотя бы одна точка должна входить в заданный вектор.')
                 return
-
-            avgPointsArr = app_vector.avg_sorted_points(xAxisVector, yAxisVector, sortedPoints)
-            csvRecord = app_vector.replace_symbols_surface(avgPointsArr, '.', ',')
+            nodePoints = app_vector.node_points(xAxisVector, yAxisVector, sortedPoints)
+            csvRecord = app_vector.replace_symbols_surface(nodePoints, '.', ',')
             self.csvRecordList = app_vector.process_list_to_csvFormat_surface(csvRecord)
-            csvRecord = app_vector.replace_symbols_surface(avgPointsArr, ',', '.')
-            app_vector.surface(avgPointsArr, pointsArr, xAxisVector, yAxisVector)
+            csvRecord = app_vector.replace_symbols_surface(nodePoints, ',', '.')
+            app_vector.surface(nodePoints, pointsArr, xAxisVector, yAxisVector, zMin, zMax)
+            check = False
+            for path in self.oldPath:
+                if path == self.path:  # Если такой файл ещё не был открыт
+                    check = True  # Такой файл уже открывался
+            if check == False:
+                self.oldPath.append(self.path)
 
 class Approximation(ttk.Frame, CommonFunc):
     # Список созданных элементов
